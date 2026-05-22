@@ -16,7 +16,7 @@ from leitor_serial_v3 import LeitorSerial
 
 
 # ============================================================
-# CONFIG
+# CONFIG (Coloque a porta Serial que estiver conectado no mpu)
 # ============================================================
 SERIAL_PORT    = "COM6"
 SERIAL_BAUD    = 115200
