@@ -14,9 +14,8 @@
 *Visualização 3D de satélite orientada por dados reais do sensor MPU6050 via FreeRTOS*
 
 </div>
-
 <div align="center">
-  <img src="RTOS_simulator/img/tela_inicial.png" alt="Descrição" width="780"/>
+  <img src="img/tela_inicial.png" alt="Tela inicial do RTOS Simulator" width="780"/>
 </div>
 
 ---
