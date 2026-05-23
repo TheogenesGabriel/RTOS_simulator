@@ -15,6 +15,10 @@
 
 </div>
 
+<div align="center">
+  <img src="img/nome-do-arquivo.png" alt="Descrição" width="780"/>
+</div>
+
 ---
 
 ## O que é este projeto?
