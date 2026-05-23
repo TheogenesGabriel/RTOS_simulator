@@ -26,6 +26,11 @@ O **RTOS Simulator** conecta hardware embarcado e visualização em tempo real: 
 
 Quando o sensor não está disponível, o sistema entra em modo de simulação interna, mantendo toda a narrativa visual funcionando.
 
+<div align="center">
+  <img src="img/interface.png" alt="Interface do simulador" width="780"/>
+</div>
+
+
 ---
 
 ## Demonstração rápida
