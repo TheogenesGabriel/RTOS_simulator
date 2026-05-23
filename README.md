@@ -66,7 +66,7 @@ O simulador possui três modos, selecionáveis pelo painel superior ou pela tecl
 ### Modo Missão — detalhamento das fases
 
 ```
-[INTRO] ──S──► [AVISO 5s] ──► [CHUVA 5s] ──► [CORREÇÃO 15s] ──► [PERGUNTA]
+[INTRO] ──S──► [AVISO 5s] ──► [CHUVA 5s] ──► [CORREÇÃO 10s] ──► [PERGUNTA]
    └──N──► encerrado                                                │  └──S──► [AVISO] (reinicia)
                                                                     └──N──► encerrado
 ```
