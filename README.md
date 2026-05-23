@@ -16,7 +16,7 @@
 </div>
 
 <div align="center">
-  <img src="img/nome-do-arquivo.png" alt="Descrição" width="780"/>
+  <img src="RTOS_simulator/img/tela_inicial.png" alt="Descrição" width="780"/>
 </div>
 
 ---
