@@ -1,112 +1,135 @@
-Com base nos arquivos que você compartilhou (o código C para o MPU6050 com FreeRTOS e o simulador Python com OpenGL), vou criar um README completo e bem estruturado para o projeto.
+<div align="center">
+
+<img src="img/incio.png" alt="RTOS Simulator splash screen" width="780"/>
+
+# 🛰️ RTOS Simulator
+
+**Simulador de Atitude de Satélite em Tempo Real**
+
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![C](https://img.shields.io/badge/C-FreeRTOS-00599C?style=for-the-badge&logo=c&logoColor=white)](https://freertos.org)
+[![OpenGL](https://img.shields.io/badge/OpenGL-3D-5586A4?style=for-the-badge&logo=opengl&logoColor=white)](https://opengl.org)
+[![Raspberry Pi Pico W](https://img.shields.io/badge/Raspberry_Pi_Pico_W-Hardware-C51A4A?style=for-the-badge&logo=raspberrypi&logoColor=white)](https://raspberrypi.com)
+
+*Visualização 3D de satélite orientada por dados reais do sensor MPU6050 via FreeRTOS*
+
+</div>
 
 ---
 
-# 🚀 RTOS Simulator - Simulador de Atitude de Satélite com MPU6050 e FreeRTOS
+## O que é este projeto?
 
-![Python](https://img.shields.io/badge/Python-80.1%25-blue)
-![C](https://img.shields.io/badge/C-19.1%25-green)
-![FreeRTOS](https://img.shields.io/badge/FreeRTOS-Embedded-red)
-![OpenGL](https://img.shields.io/badge/OpenGL-3D-orange)
+O **RTOS Simulator** conecta hardware embarcado e visualização em tempo real: um sensor **MPU6050** (acelerômetro + giroscópio) roda em uma **Raspberry Pi Pico W** com **FreeRTOS**, transmite ângulos de pitch/roll/yaw via USB serial, e um simulador **Python/OpenGL** usa esses dados para animar um modelo 3D de satélite.
 
-## 📋 Visão Geral
-
-O **RTOS Simulator** é um projeto de visualização 3D em tempo real que simula a atitude de um satélite, utilizando dados reais do sensor **MPU6050** (acelerômetro + giroscópio) ou um comportamento simulado. O sistema possui três modos operacionais:
-
-- 🎮 **Guiagem** — Trajetória guiada com movimentos suaves e partículas.
-- 🛰️ **Missão** — Sequência narrativa de 3 fases (Aviso → Chuva de Meteoros → Correção de Órbita → Conclusão).
-- 🔧 **Calibração** — Monitoramento detalhado dos dados brutos do sensor e ângulos filtrados.
-
-> ⚡ Para o modo Missão, os ângulos reais do MPU6050 (conectado à placa Raspberry Pi Pico W rodando FreeRTOS) são utilizados dinamicamente.
+Quando o sensor não está disponível, o sistema entra em modo de simulação interna, mantendo toda a narrativa visual funcionando.
 
 ---
 
-## 🧠 Arquitetura do Projeto
+## Demonstração rápida
+
+```
+sensor MPU6050
+     │  I2C  
+Raspberry Pi Pico W  ──── FreeRTOS task ────► USB Serial (115200 baud)
+                                                       │
+                                               leitor_serial_v3.py
+                                                       │
+                                           rocket_visualizer.py (OpenGL)
+                                                       │
+                                          ┌────────────▼────────────┐
+                                          │  Modelo 3D do satélite  │
+                                          │  Horizonte Artificial   │
+                                          │  Gráfico IMU            │
+                                          └─────────────────────────┘
+```
+
+---
+
+## Modos de operação
+
+O simulador possui três modos, selecionáveis pelo painel superior ou pela tecla `N`:
+
+| Modo | Descrição |
+|------|-----------|
+| 🎮 **Guiagem** | Trajetória guiada com movimentos suaves; meteoros e detritos orbitais ativos |
+| 🛰️ **Missão** | Sequência narrativa em 3 fases com atitude dirigida pelo sensor ou simulada |
+| 🔧 **Calibração** | Leitura dos dados brutos do acelerômetro e giroscópio; zeragem de ângulos |
+
+### Modo Missão — detalhamento das fases
+
+```
+[INTRO] ──S──► [AVISO 5s] ──► [CHUVA 5s] ──► [CORREÇÃO 15s] ──► [PERGUNTA]
+   └──N──► encerrado                                                │  └──S──► [AVISO] (reinicia)
+                                                                    └──N──► encerrado
+```
+
+| Fase | Duração | O que acontece |
+|------|---------|----------------|
+| **INTRO** | Aguarda `S`/`N` | Painel explicativo das 3 fases. O satélite permanece estável. |
+| **AVISO** | 5 s | Contagem regressiva com alerta visual piscante. |
+| **CHUVA** | 5 s | Pitch/roll/yaw oscilam caoticamente. Chuva de meteoros intensa. |
+| **CORREÇÃO** | 15 s | Propulsores virtuais retornam o satélite ao nominal. Barra de progresso. |
+| **PERGUNTA** | Aguarda `S`/`N` (mín. 2 s) | Missão concluída — repetir? |
+
+> Se o MPU6050 estiver conectado, os ângulos **reais** do hardware substituem a simulação em todas as fases.
+
+---
+
+## Estrutura do repositório
 
 ```
 RTOS_simulator/
-├── simulador_RTOS/
-│   ├── RTOS_simulator_v1.py          # Simulador principal (Python/OpenGL)
-│   ├── paineis_imu_v2.py             # Painéis 2D (horizonte artificial, gráfico IMU)
-│   ├── leitor_serial_v3.py           # Comunicação serial com o MPU6050
-│   └── meu_objeto3.obj / .mtl        # Modelo 3D do satélite
 │
-├── MPU6050_RTOS_BitDogLab/
-│   ├── RTOS_leitor_mpu.c             # Firmware FreeRTOS para o sensor MPU6050
-│   ├── FreeRTOSConfig.h              # Configuração do FreeRTOS
+├── simulador_RTOS/                  # Simulador Python
+│   ├── rocket_visualizer.py         # Loop principal (OpenGL + máquina de estados)
+│   ├── paineis_imu_v2.py            # Horizonte artificial e gráfico IMU 2D
+│   ├── leitor_serial_v3.py          # Thread de leitura serial assíncrona
+│   ├── meu_objeto3.obj / .mtl       # Modelo 3D do satélite (+ textura difusa)
+│   └── fundo.png                    # Textura do fundo estrelado
+│
+├── MPU6050_RTOS_BitDogLab/          # Firmware embarcado
+│   ├── RTOS_leitor_mpu.c            # Tarefa FreeRTOS: lê MPU6050 e envia serial
+│   ├── FreeRTOSConfig.h             # Configurações do kernel
 │   └── CMakeLists.txt
 │
+├── img/                             # Screenshots e mídia
 └── README.md
 ```
 
 ---
 
-## 🖥️ Simulador Python (Interface 3D)
+## Hardware necessário
 
-### Funcionalidades
+| Componente | Especificação |
+|------------|--------------|
+| Microcontrolador | Raspberry Pi Pico W |
+| Sensor IMU | MPU6050 (acelerômetro + giroscópio 6 DOF) |
+| Conexão | USB (serial CDC) |
+| Barramento | I2C — SDA: GPIO 0 · SCL: GPIO 1 · 400 kHz |
+| Endereço I2C | `0x68` |
 
-- **Visualização 3D** do satélite com textura (arquivo `.obj`).
-- **Câmera interativa**:
-  - Arrastar com botão esquerdo para rotacionar.
-  - Roda do mouse para zoom.
-- **Painel superior** com seleção dos modos (Guiagem/Missão/Calibração).
-- **Horizonte Artificial** e **Gráfico IMU 3D** mostrando atitude em tempo real.
-- **Sistema de partículas**:
-  - Meteoros (com intensidade variável na tempestade).
-  - Detritos orbitais.
-- **Transições com fade** entre modos.
-- **Tela de splash** animada na inicialização.
+**Diagrama de conexão MPU6050 → Pico W:**
 
-### Modo Missão (detalhado)
-
-| Fase | Duração | Comportamento |
-|------|---------|----------------|
-| **INTRO** | Indefinida (espera usuário) | Painel explicativo com as 3 fases. Pressione `S` para iniciar. |
-| **AVISO** | 5 segundos | Satélite parado. Contagem regressiva até a chuva de meteoros. |
-| **CHUVA** | 5 segundos | Ângulos oscilam caoticamente (simulados ou reais). Meteoros intensos. |
-| **CORREÇÃO** | 10 segundos | Ângulos são suavemente levados a zero. Barra de progresso. |
-| **PERGUNTA** | Indefinida | Pergunta se deseja repetir a missão (`S`/`N`). |
-
-> Se o MPU6050 estiver conectado, os ângulos reais substituem a simulação durante toda a missão.
-
-### Controles do Simulador
-
-| Tecla | Ação |
-|-------|------|
-| `ENTER` | Iniciar (na tela de splash) |
-| `ESPAÇO` | Pausar/retomar simulação |
-| `N` | Próximo modo (Guiagem → Missão → Calibração) |
-| `S` | Responder "Sim" nos diálogos da missão |
-| `N` | Responder "Não" nos diálogos da missão |
-| `R` | Resetar câmera |
-| `P` | Mostrar/esconder ponteiro de direção 3D |
-| `C` | Zerar ângulos (modo Calibração) |
-| `ESC` | Sair |
+```
+MPU6050          Raspberry Pi Pico W
+────────         ────────────────────
+VCC      ──────  3V3 (pin 36)
+GND      ──────  GND (pin 38)
+SDA      ──────  GPIO 0 (pin 1)
+SCL      ──────  GPIO 1 (pin 2)
+AD0      ──────  GND   (endereço 0x68)
+```
 
 ---
 
-## 🔌 Firmware Embarcado (Raspberry Pi Pico W + FreeRTOS)
+## Firmware (FreeRTOS)
 
-O arquivo `RTOS_leitor_mpu.c` implementa um firmware para a **Raspberry Pi Pico W** que:
+O arquivo `RTOS_leitor_mpu.c` cria uma única tarefa FreeRTOS (`vTaskMPU`) que:
 
-1. Inicializa o barramento **I2C** para comunicar com o MPU6050.
-2. Realiza o **reset** do sensor.
-3. Cria uma **tarefa FreeRTOS** (`vTaskMPU`) que:
-   - Aguarda 3 segundos (para estabilização da USB).
-   - A cada **500 ms**, lê os dados brutos do acelerômetro, giroscópio e temperatura.
-   - Calcula **pitch**, **roll** e **temperatura**.
-   - Envia os dados pela **USB serial** no formato esperado pelo `leitor_serial_v3.py`.
-
-### Configurações I2C
-
-| Parâmetro | Valor |
-|-----------|-------|
-| Pino SDA | GPIO 0 |
-| Pino SCL | GPIO 1 |
-| Frequência | 400 kHz |
-| Endereço MPU6050 | 0x68 |
-
-### Exemplo de saída serial (esperada pelo Python)
+1. Aguarda 3 s para estabilização da USB após boot.
+2. A cada **500 ms**, lê acelerômetro, giroscópio e temperatura do MPU6050 via I2C.
+3. Calcula pitch e roll a partir dos valores brutos do acelerômetro.
+4. Envia os dados pelo **USB serial** no formato que o Python espera:
 
 ```
 Acel  -> X:  0.012 g  Y: -0.034 g  Z:  0.998 g
@@ -115,113 +138,138 @@ Pitch:  2.34      Roll: -1.23
 Temp : 24.56 C
 ```
 
----
-
-## 🧰 Dependências e Instalação
-
-### Simulador Python
-
-```bash
-pip install pygame PyOpenGL numpy pyserial
-```
-
-### Firmware (para compilar no Pico W)
-
-- SDK do Raspberry Pi Pico
-- FreeRTOS Kernel para Pico (ex: [pico-freertos](https://github.com/FreeRTOS/FreeRTOS-Kernel))
-- CMake ≥ 3.13
+### Compilar e gravar
 
 ```bash
 cd MPU6050_RTOS_BitDogLab/
 mkdir build && cd build
 cmake ..
 make
+# copie o arquivo .uf2 gerado para o Pico W em modo BOOTSEL
 ```
 
-O arquivo `.uf2` gerado deve ser copiado para o Pico W.
+**Dependências do firmware:**
+- [Raspberry Pi Pico SDK](https://github.com/raspberrypi/pico-sdk)
+- [FreeRTOS-Kernel para Pico](https://github.com/FreeRTOS/FreeRTOS-Kernel)
+- CMake ≥ 3.13
 
 ---
 
-## ▶️ Como Executar
+## Simulador Python
 
-1. **Conecte o MPU6050** ao Raspberry Pi Pico W conforme os pinos acima.
-2. **Carregue o firmware** no Pico W.
-3. **Conecte o Pico W ao computador** via USB (a porta serial será, por exemplo, `COM6` no Windows ou `/dev/ttyACM0` no Linux).
-4. **Execute o simulador**:
-   ```bash
-   python RTOS_simulator_v1.py
-   ```
-5. Na tela de splash, pressione `ENTER`.
-6. Selecione o modo desejado e interaja.
+### Instalação
 
-> ⚠️ Verifique no código `RTOS_simulator_v1.py` a variável `SERIAL_PORT` (padrão `COM6`) e ajuste para sua porta.
-
----
-
-## 🧪 Testes e Validação
-
-| Componente | Teste | Status |
-|------------|-------|--------|
-| Leitor serial | Conectividade com Pico W | ✅ OK |
-| Filtro complementar | Estabilidade dos ângulos | ✅ OK |
-| Modo Missão | Sequência correta das fases | ✅ OK |
-| Modelo 3D | Carregamento .obj + textura | ✅ OK |
-| Partículas | Meteoros e detritos | ✅ OK |
-| Transições fade | Suave entre modos | ✅ OK |
-
----
-
-## 📁 Estrutura de Arquivos Esperada
-
-```
-RTOS_simulator/
-│
-├── RTOS_simulator_v1.py
-├── paineis_imu_v2.py
-├── leitor_serial_v3.py
-├── meu_objeto3.obj
-├── meu_objeto3.mtl
-├── v1_difuse.jpg               (ou qualquer textura .jpg/.png)
-├── fundo.png                   (textura do fundo estrelado)
-└── fontes/                     (opcional: Orbitron.ttf, Rajdhani.ttf, etc.)
+```bash
+pip install pygame PyOpenGL numpy pyserial
 ```
 
-> Se as fontes não forem encontradas, o sistema usa fallbacks internos do sistema.
+### Executar
+
+```bash
+cd simulador_RTOS/
+python rocket_visualizer.py
+```
+
+Pressione `ENTER` na tela de splash para iniciar.
+
+> **Porta serial:** verifique a variável `SERIAL_PORT` no início de `rocket_visualizer.py` (padrão: `COM6` no Windows). No Linux, use `/dev/ttyACM0` ou similar.
+
+### Controles
+
+| Tecla | Contexto | Ação |
+|-------|----------|------|
+| `ENTER` | Splash | Iniciar o simulador |
+| `ESPAÇO` | Sempre | Pausar / retomar |
+| `N` | Fora de diálogos | Próximo modo |
+| `S` / `N` | Diálogos da Missão | Confirmar / cancelar |
+| `R` | Sempre | Resetar câmera |
+| `P` | Sempre | Mostrar/ocultar ponteiro 3D |
+| `C` | Calibração | Zerar ângulos |
+| `ESC` | Sempre | Sair |
+| Mouse drag (btn esq.) | 3D | Rotacionar câmera |
+| Scroll do mouse | 3D | Zoom in/out |
+
+### Fontes (opcional)
+
+O sistema detecta automaticamente fontes `.ttf` na pasta do projeto. Para a estética completa, coloque na pasta raiz:
+
+| Família | Arquivo |
+|---------|---------|
+| Display | `Orbitron-VariableFont_wght.ttf` |
+| Mono | `ShareTechMono-Regular.ttf` |
+| Label | `Rajdhani-Regular.ttf` / `Rajdhani-Bold.ttf` |
+
+Se não encontradas, são usados fallbacks do sistema operacional.
 
 ---
 
-## 🤝 Contribuição
+## Arquitetura do simulador
 
-Contribuições são bem-vindas! Sugestões:
+O `rocket_visualizer.py` é organizado em camadas:
 
-- Adicionar log de dados do IMU para CSV.
-- Implementar modo de replay da missão.
-- Suporte a outros sensores (BNO055, etc.).
-- Melhorar o modelo 3D com animações de painel solar.
+```
+┌──────────────────────────────────────────────────────┐
+│                    Loop principal                    │
+│  eventos → lógica → OpenGL 3D → overlay 2D pygame   │
+└──────────┬────────────┬───────────────┬──────────────┘
+           │            │               │
+    MaquinaMissao   Camera          PainelModos
+    (máquina de     (orbital,       (UI superior,
+     estados)       drag+zoom)       fade entre modos)
+           │
+    FiltroAngulo  ←──  LeitorSerial (thread)  ←── MPU6050
+    (complementar)
+```
 
----
+**Principais classes:**
 
-## 📜 Licença
-
-Este projeto está sob a licença **MIT**. Você é livre para usar, modificar e distribuir, desde que mantenha os créditos originais.
-
----
-
-## 👨‍🚀 Autor
-
-**Theógenes Gabriel**  
-GitHub: [@TheogenesGabriel](https://github.com/TheogenesGabriel)
-
-Projeto desenvolvido para disciplina de **Sistemas Operacionais de Tempo Real** com foco em aplicações aeroespaciais.
-
----
-
-## 🌟 Agradecimentos
-
-- FreeRTOS.org pela documentação e kernel.
-- Pygame/OpenGL community.
-- InvenSense pelo MPU6050.
+| Classe | Responsabilidade |
+|--------|-----------------|
+| `MaquinaMissao` | Máquina de estados (IDLE → INTRO → AVISO → CHUVA → CORREÇÃO → PERGUNTA) |
+| `FiltroAngulo` | Lê pitch/roll/yaw do `LeitorSerial` e aplica suavização |
+| `Camera` | Câmera orbital com drag e zoom via mouse |
+| `PainelModos` | Barra superior com botões animados de seleção de modo |
+| `Meteoros` | Sistema de partículas para chuva de meteoros |
+| `Detritos` | Partículas de detritos orbitais em parallax |
+| `GerenciadorFontes` | Carrega fontes TTF com fallback para fontes do sistema |
 
 ---
 
-**Bom voo orbital! 🛰️**
+## Pré-requisitos de sistema
+
+| Item | Versão mínima |
+|------|--------------|
+| Python | 3.10 |
+| Sistema operacional | Windows 10 / Ubuntu 20.04 / macOS 12 |
+| OpenGL | 2.1 (suporte a VBO e iluminação por hardware) |
+| RAM | 512 MB livres recomendado |
+
+---
+
+## Contribuições
+
+Contribuições são bem-vindas. Ideias para próximas versões:
+
+- Exportar log de atitude para CSV com timestamp.
+- Modo replay de missões gravadas.
+- Suporte a outros sensores (BNO055, ICM-42688).
+- Animação dos painéis solares no modelo 3D.
+- Protocolo serial mais robusto com checksum.
+
+---
+
+## Licença
+
+Distribuído sob a licença **MIT**. Consulte o arquivo `LICENSE` para mais detalhes.
+
+---
+
+<div align="center">
+
+Desenvolvido por **Theógenes Gabriel** — [@TheogenesGabriel](https://github.com/TheogenesGabriel)
+
+*Projeto de Sistemas Operacionais de Alta Criticidade — 2026*
+
+🛰️
+
+</div>
