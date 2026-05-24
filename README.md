@@ -30,7 +30,6 @@ Quando o sensor não está disponível, o sistema entra em modo de simulação i
   <img src="img/interface.png" alt="Interface do simulador" width="780"/>
 </div>
 
-
 ---
 
 ## Demonstração rápida
@@ -38,9 +37,9 @@ Quando o sensor não está disponível, o sistema entra em modo de simulação i
 ```
 sensor MPU6050
      │  I2C  
-Raspberry Pi Pico W  ──── FreeRTOS task ────► USB Serial (115200 baud)
+Raspberry Pi Pico W  ──── FreeRTOS tasks ───► USB Serial (115200 baud)
                                                        │
-                                               leitor_serial_v3.py
+                                               leitor_serial.py
                                                        │
                                            rocket_visualizer.py (OpenGL)
                                                        │
@@ -91,12 +90,12 @@ RTOS_simulator/
 ├── simulador_RTOS/                  # Simulador Python
 │   ├── rocket_visualizer.py         # Loop principal (OpenGL + máquina de estados)
 │   ├── paineis_imu_v2.py            # Horizonte artificial e gráfico IMU 2D
-│   ├── leitor_serial_v3.py          # Thread de leitura serial assíncrona
+│   ├── leitor_serial.py             # Thread de leitura serial assíncrona
 │   ├── meu_objeto3.obj / .mtl       # Modelo 3D do satélite (+ textura difusa)
 │   └── fundo.png                    # Textura do fundo estrelado
 │
 ├── MPU6050_RTOS_BitDogLab/          # Firmware embarcado
-│   ├── RTOS_leitor_mpu.c            # Tarefa FreeRTOS: lê MPU6050 e envia serial
+│   ├── mpu6050_rtos.c               # Tarefas FreeRTOS: atitude (50 Hz) + temperatura (1 Hz)
 │   ├── FreeRTOSConfig.h             # Configurações do kernel
 │   └── CMakeLists.txt
 │
@@ -132,18 +131,47 @@ AD0      ──────  GND   (endereço 0x68)
 
 ## Firmware (FreeRTOS)
 
-O arquivo `RTOS_leitor_mpu.c` cria uma única tarefa FreeRTOS (`vTaskMPU`) que:
+O arquivo `mpu6050_rtos.c` cria **duas tarefas FreeRTOS** que compartilham o barramento I2C de forma segura por meio de um **mutex**:
 
-1. Aguarda 3 s para estabilização da USB após boot.
-2. A cada **500 ms**, lê acelerômetro, giroscópio e temperatura do MPU6050 via I2C.
-3. Calcula pitch e roll a partir dos valores brutos do acelerômetro.
-4. Envia os dados pelo **USB serial** no formato que o Python espera:
+### Tarefas
+
+| Tarefa | Frequência | Prioridade | Responsabilidade |
+|--------|-----------|------------|-----------------|
+| `vTaskMPU` | 50 Hz | `IDLE + 2` | Lê acelerômetro e giroscópio, aplica filtro complementar, executa a máquina de estados de atitude e envia telemetria serial |
+| `vTaskTemp` | 1 Hz | `IDLE + 1` | Lê exclusivamente o registrador de temperatura do MPU6050 e envia o valor convertido via serial |
+
+### Compartilhamento do I2C com mutex
+
+Ambas as tarefas usam o mesmo barramento I2C. Um mutex (`xI2CMutex`) garante que apenas uma task acesse o barramento por vez:
 
 ```
-Acel  -> X:  0.012 g  Y: -0.034 g  Z:  0.998 g
-Gyro  -> X:    124     Y:    -56     Z:     23
-Pitch:  2.34      Roll: -1.23
-Temp : 24.56 C
+vTaskMPU  ──► xSemaphoreTake ──► usa I2C ──► xSemaphoreGive
+                                                    │
+vTaskTemp ──► xSemaphoreTake ◄── bloqueada ─────────┘
+              (desbloqueada após o Give acima)
+```
+
+O mutex é criado no `main()` antes de qualquer `xTaskCreate`, garantindo que o handle exista quando as tarefas iniciarem. `vTaskTemp` tem prioridade menor que `vTaskMPU`, assegurando que a leitura de temperatura nunca atrase a cadência de atitude de 50 Hz.
+
+### Protocolo serial
+
+Todas as mensagens terminam em `\n`. O `leitor_serial.py` identifica cada linha pelo prefixo:
+
+```
+Ax: <ax> <ay> <az>        acelerômetro em g              (50 Hz)
+Gx: <gx> <gy> <gz>        giroscópio em °/s              (50 Hz)
+An: <pitch> <roll> <yaw>  ângulos filtrados               (50 Hz)
+Tp: <temp_c>              temperatura interna em °C       ( 1 Hz)
+St: <FASE>                mudança de estado               (ao mudar)
+```
+
+**Fases enviadas via `St:`:**
+
+```
+St: IDLE
+St: CALIBRATING
+St: ORBITAL_FIX
+St: SUCCESS
 ```
 
 ### Compilar e gravar
@@ -226,7 +254,8 @@ O `rocket_visualizer.py` é organizado em camadas:
      estados)       drag+zoom)       fade entre modos)
            │
     FiltroAngulo  ←──  LeitorSerial (thread)  ←── MPU6050
-    (complementar)
+    (complementar)           │
+                         temperatura (1 Hz)
 ```
 
 **Principais classes:**
@@ -258,7 +287,7 @@ O `rocket_visualizer.py` é organizado em camadas:
 
 Contribuições são bem-vindas. Ideias para próximas versões:
 
-- Exportar log de atitude para CSV com timestamp.
+- Exportar log de atitude e temperatura para CSV com timestamp.
 - Modo replay de missões gravadas.
 - Suporte a outros sensores (BNO055, ICM-42688).
 - Animação dos painéis solares no modelo 3D.
